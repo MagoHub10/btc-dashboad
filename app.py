@@ -65,7 +65,6 @@ API_KEY = "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"  # Replace with your actual AP
 API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
 
 headers = {"Authorization": f"Bearer {API_KEY}"}
-"
 # ✅ AI Insights Function with Live BTC Data
 def generate_ai_insights(user_prompt):
     if not user_prompt:
