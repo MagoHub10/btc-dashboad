@@ -20,7 +20,7 @@ def get_crypto_data(crypto_id="bitcoin", days=180):
         return pd.DataFrame()
 
 # ✅ Load AI Insights
-API_KEY = "your_huggingface_api_key"
+API_KEY = "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"
 API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
 
 def generate_ai_insights(prompt):
