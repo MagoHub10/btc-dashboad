@@ -2,30 +2,18 @@ import requests
 import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
+from datetime import datetime
+from time import sleep
 
-# ✅ Load Bitcoin price data (Last 6 Months)
-def get_crypto_data(crypto_id="bitcoin", days=180):
-    url = f"https://api.coingecko.com/api/v3/coins/{crypto_id}/market_chart"
-    params = {'vs_currency': 'usd', 'days': days, 'interval': 'daily'}
-    
-    try:
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()  # Raises error if request fails
-        data = response.json()
-        df = pd.DataFrame(data['prices'], columns=['timestamp', 'price'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-        return df
-    except requests.exceptions.RequestException as e:
-        return f"❌ Error fetching price data: {e}"
-
-# ✅ Fetch Current Bitcoin Price with Error Handling
+# ✅ Cache BTC price for 5 minutes (300 seconds)
+@st.cache_data(ttl=300)
 def get_btc_price():
     url = "https://api.coingecko.com/api/v3/simple/price"
     params = {"ids": "bitcoin", "vs_currencies": "usd"}
-
+    
     try:
         response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()  # Raises error if request fails
+        response.raise_for_status()
         data = response.json()
         
         if "bitcoin" in data and "usd" in data["bitcoin"]:
@@ -36,24 +24,42 @@ def get_btc_price():
     except requests.exceptions.RequestException as e:
         return f"❌ API Request Error: {e}"
 
-# ✅ Calculate 7-Day Percentage Change
+# ✅ Cache 7-day percentage change for 5 minutes
+@st.cache_data(ttl=300)
 def get_weekly_change():
     url = "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart"
     params = {"vs_currency": "usd", "days": "7"}
 
     try:
         response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()  # Raises error if request fails
+        response.raise_for_status()
         data = response.json()["prices"]
-        start_price = data[0][1]  # Price 7 days ago
-        current_price = data[-1][1]  # Latest price
+        start_price = data[0][1]
+        current_price = data[-1][1]
         percentage_change = ((current_price - start_price) / start_price) * 100
         return round(percentage_change, 2)
+    
     except requests.exceptions.RequestException as e:
         return f"❌ API Request Error: {e}"
 
+# ✅ Cache BTC historical data for 30 minutes
+@st.cache_data(ttl=1800)
+def get_crypto_data(crypto_id="bitcoin", days=180):
+    url = f"https://api.coingecko.com/api/v3/coins/{crypto_id}/market_chart"
+    params = {'vs_currency': 'usd', 'days': days, 'interval': 'daily'}
+    
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        df = pd.DataFrame(data['prices'], columns=['timestamp', 'price'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        return df
+    except requests.exceptions.RequestException as e:
+        return f"❌ Error fetching price data: {e}"
+
 # ✅ AI API (Hugging Face)
-API_KEY = "your_huggingface_api_key"  # Replace with your API Key
+API_KEY = "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"  # Replace with your API Key
 API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
 
 # ✅ AI Insights Function with Live BTC Data
@@ -105,9 +111,11 @@ btc_price = get_btc_price()
 weekly_change = get_weekly_change()
 
 if isinstance(btc_price, str) and "❌" in btc_price:
-    st.error(btc_price)  # Show error message in UI
+    st.warning("⚠️ Too many requests! Data is temporarily unavailable. Please wait a few minutes.")
+    st.error(btc_price)
 elif isinstance(weekly_change, str) and "❌" in weekly_change:
-    st.error(weekly_change)  # Show error message in UI
+    st.warning("⚠️ Too many requests! Data is temporarily unavailable. Please wait a few minutes.")
+    st.error(weekly_change)
 else:
     st.metric(label="📊 Bitcoin Price", value=f"${btc_price:,.2f}")
     st.metric(label="📉 7-Day Change", value=f"{weekly_change:.2f}%", delta=weekly_change)
