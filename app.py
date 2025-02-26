@@ -58,36 +58,16 @@ def get_crypto_data(crypto_id="bitcoin", days=180):
         return f"❌ Error fetching price data: {e}"
 
 # ✅ AI API (Hugging Face)
-API_KEY = "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"  # Replace with your API Key
+API_KEY = "your_huggingface_api_key"  # Replace with your API Key
 API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
 
-# ✅ AI Insights Function with User Input
+# ✅ AI Insights Function with User Input (Fixed)
 def generate_ai_insights(user_prompt):
     if not user_prompt:
         return "❌ Please enter a question to ask the AI."
 
-    # Add real-time BTC price & change for context
-    btc_price = get_btc_price()
-    weekly_change = get_weekly_change()
-
-    if isinstance(btc_price, str) and "❌" in btc_price:
-        return btc_price  # Return error message if API fails
-    if isinstance(weekly_change, str) and "❌" in weekly_change:
-        return weekly_change  # Return error message if API fails
-
-    # Append real BTC data to user question
-    prompt = f"""
-    Bitcoin's current price is **${btc_price:,.2f}**.
-    Over the past 7 days, the price has changed by **{weekly_change:.2f}%**.
-
-    User question: {user_prompt}
-    
-    You are an expert of Crypto and WEB3 which gives financial advises about trends and what happened in the industry, use all the knowledge you have to provide insightful suggestions on kpis and trends to monitor to succeed in the industry
-    Open always your response politely and be professional as much as possible.
-    """
-
     headers = {"Authorization": f"Bearer {API_KEY}"}
-    response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+    response = requests.post(API_URL, headers=headers, json={"inputs": user_prompt})
 
     if response.status_code != 200:
         return f"❌ AI API Error: HTTP {response.status_code}"
