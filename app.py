@@ -18,10 +18,10 @@ def get_btc_price():
         if "bitcoin" in data and "usd" in data["bitcoin"]:
             return data["bitcoin"]["usd"]
         else:
-            return "⚠️ API response format error"
+            return None
     
-    except requests.exceptions.RequestException as e:
-        return f"❌ API Request Error: {e}"
+    except requests.exceptions.RequestException:
+        return None
 
 # ✅ Cache 7-day percentage change for 5 minutes
 @st.cache_data(ttl=300)
@@ -33,13 +33,13 @@ def get_weekly_change():
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
         data = response.json()["prices"]
-        start_price = data[0][1]
-        current_price = data[-1][1]
+        start_price = data[0][1]  # Price 7 days ago
+        current_price = data[-1][1]  # Latest price
         percentage_change = ((current_price - start_price) / start_price) * 100
         return round(percentage_change, 2)
     
-    except requests.exceptions.RequestException as e:
-        return f"❌ API Request Error: {e}"
+    except requests.exceptions.RequestException:
+        return None
 
 # ✅ Cache BTC historical data for 30 minutes
 @st.cache_data(ttl=1800)
@@ -54,20 +54,39 @@ def get_crypto_data(crypto_id="bitcoin", days=180):
         df = pd.DataFrame(data['prices'], columns=['timestamp', 'price'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         return df
-    except requests.exceptions.RequestException as e:
-        return f"❌ Error fetching price data: {e}"
+    except requests.exceptions.RequestException:
+        return None
 
 # ✅ AI API (Hugging Face)
 API_KEY = "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"  # Replace with your API Key
 API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
 
-# ✅ AI Insights Function with User Input (Fixed)
+# ✅ AI Insights Function with Live BTC Data
 def generate_ai_insights(user_prompt):
     if not user_prompt:
         return "❌ Please enter a question to ask the AI."
 
+    # Fetch live Bitcoin data
+    btc_price = get_btc_price()
+    weekly_change = get_weekly_change()
+
+    # If API calls fail, return an error
+    if btc_price is None or weekly_change is None:
+        return "❌ Unable to fetch Bitcoin data. Please try again later."
+
+    # Append live BTC data to the user question
+    full_prompt = f"""
+    Bitcoin's current price is **${btc_price:,.2f}**.
+    Over the past 7 days, the price has changed by **{weekly_change:.2f}%**.
+
+    {user_prompt}
+
+    Provide a professional insight based on this data.
+    Suggest key market trends, investor sentiment, and potential forecasts.
+    """
+
     headers = {"Authorization": f"Bearer {API_KEY}"}
-    response = requests.post(API_URL, headers=headers, json={"inputs": user_prompt})
+    response = requests.post(API_URL, headers=headers, json={"inputs": full_prompt})
 
     if response.status_code != 200:
         return f"❌ AI API Error: HTTP {response.status_code}"
@@ -83,8 +102,8 @@ st.title("📊 Bitcoin Dashboard with AI Insights")
 # ✅ Load & Display BTC Data
 crypto_df = get_crypto_data()
 
-if isinstance(crypto_df, str) and "❌" in crypto_df:
-    st.error(crypto_df)  # Display API error in UI
+if crypto_df is None:
+    st.error("❌ Error fetching historical Bitcoin data.")
 else:
     st.subheader("🔹 Bitcoin Price Trend (Last 6 Months)")
     st.line_chart(crypto_df.set_index('timestamp')['price'])
@@ -95,12 +114,8 @@ st.subheader("💰 Current Bitcoin Price")
 btc_price = get_btc_price()
 weekly_change = get_weekly_change()
 
-if isinstance(btc_price, str) and "❌" in btc_price:
-    st.warning("⚠️ Too many requests! Data is temporarily unavailable. Please wait a few minutes.")
-    st.error(btc_price)
-elif isinstance(weekly_change, str) and "❌" in weekly_change:
-    st.warning("⚠️ Too many requests! Data is temporarily unavailable. Please wait a few minutes.")
-    st.error(weekly_change)
+if btc_price is None or weekly_change is None:
+    st.warning("⚠️ Too many requests or API unavailable. Please wait a few minutes.")
 else:
     st.metric(label="📊 Bitcoin Price", value=f"${btc_price:,.2f}")
     st.metric(label="📉 7-Day Change", value=f"{weekly_change:.2f}%", delta=weekly_change)
