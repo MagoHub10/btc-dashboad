@@ -20,7 +20,8 @@ def get_btc_price():
         else:
             return None
     
-    except requests.exceptions.RequestException:
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error fetching BTC price: {e}")
         return None
 
 # ✅ Cache 7-day percentage change for 5 minutes
@@ -38,7 +39,8 @@ def get_weekly_change():
         percentage_change = ((current_price - start_price) / start_price) * 100
         return round(percentage_change, 2)
     
-    except requests.exceptions.RequestException:
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error fetching weekly change: {e}")
         return None
 
 # ✅ Cache BTC historical data for 30 minutes
@@ -54,13 +56,14 @@ def get_crypto_data(crypto_id="bitcoin", days=180):
         df = pd.DataFrame(data['prices'], columns=['timestamp', 'price'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         return df
-    except requests.exceptions.RequestException:
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error fetching historical data: {e}")
         return None
 
 # ✅ AI API (Hugging Face)
 API_KEY = "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"  # Replace with your API Key
 API_URL = "https://api-inference.huggingface.co/models/deepseek-ai/deepseek-llm-7b"
-"
+
 # ✅ AI Insights Function with Live BTC Data
 def generate_ai_insights(user_prompt):
     if not user_prompt:
@@ -102,9 +105,8 @@ def generate_ai_insights(user_prompt):
 
     try:
         return response.json()[0]['generated_text']
-    except Exception:
-        return "❌ Error processing AI response."
-
+    except Exception as e:
+        return f"❌ Error processing AI response: {e}"
 
 # ✅ Streamlit Dashboard
 st.title("📊 Bitcoin Dashboard with AI Insights")
