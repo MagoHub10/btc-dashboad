@@ -81,8 +81,7 @@ def generate_ai_insights(user_prompt):
 
     {user_prompt}
 
-    Provide a professional insight based on this data.
-    Suggest key market trends, investor sentiment, and potential forecasts.
+  .
     """
 
     headers = {"Authorization": f"Bearer {API_KEY}"}
