@@ -58,7 +58,7 @@ def get_crypto_data(crypto_id="bitcoin", days=180):
         return f"❌ Error fetching price data: {e}"
 
 # ✅ AI API (Hugging Face)
-API_KEY = "your_huggingface_api_key"  # Replace with your API Key
+API_KEY = "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"  # Replace with your API Key
 API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
 
 # ✅ AI Insights Function with User Input (Fixed)
