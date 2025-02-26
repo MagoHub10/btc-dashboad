@@ -80,8 +80,6 @@ def generate_ai_insights(user_prompt):
     Over the past 7 days, the price has changed by **{weekly_change:.2f}%**.
 
     {user_prompt}
-
-  .
     """
 
     headers = {"Authorization": f"Bearer {API_KEY}"}
