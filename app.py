@@ -3,7 +3,6 @@ import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 from datetime import datetime
-from time import sleep
 
 # ✅ Cache BTC price for 5 minutes (300 seconds)
 @st.cache_data(ttl=300)
@@ -62,8 +61,12 @@ def get_crypto_data(crypto_id="bitcoin", days=180):
 API_KEY = "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"  # Replace with your API Key
 API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
 
-# ✅ AI Insights Function with Live BTC Data
-def generate_ai_insights():
+# ✅ AI Insights Function with User Input
+def generate_ai_insights(user_prompt):
+    if not user_prompt:
+        return "❌ Please enter a question to ask the AI."
+
+    # Add real-time BTC price & change for context
     btc_price = get_btc_price()
     weekly_change = get_weekly_change()
 
@@ -72,13 +75,15 @@ def generate_ai_insights():
     if isinstance(weekly_change, str) and "❌" in weekly_change:
         return weekly_change  # Return error message if API fails
 
-    # Create AI prompt with real-time price data
+    # Append real BTC data to user question
     prompt = f"""
     Bitcoin's current price is **${btc_price:,.2f}**.
     Over the past 7 days, the price has changed by **{weekly_change:.2f}%**.
 
-    Provide a financial market insight based on this data.
-    Mention possible reasons for the trend and a short-term forecast.
+    User question: {user_prompt}
+    
+    You are an expert of Crypto and WEB3 which gives financial advises about trends and what happened in the industry, use all the knowledge you have to provide insightful suggestions on kpis and trends to monitor to succeed in the industry
+    Open always your response politely and be professional as much as possible.
     """
 
     headers = {"Authorization": f"Bearer {API_KEY}"}
@@ -120,10 +125,11 @@ else:
     st.metric(label="📊 Bitcoin Price", value=f"${btc_price:,.2f}")
     st.metric(label="📉 7-Day Change", value=f"{weekly_change:.2f}%", delta=weekly_change)
 
-# ✅ AI Insights Section
-st.subheader("🤖 AI-Generated Insights on Bitcoin")
+# ✅ AI Insights Section with User Input
+st.subheader("🤖 Ask AI About Bitcoin")
 
-if st.button("Generate Insights"):
+user_question = st.text_area("Enter your question about Bitcoin:", "")
+if st.button("Generate AI Insights"):
     with st.spinner("Generating insights..."):
-        insights = generate_ai_insights()
+        insights = generate_ai_insights(user_question)
         st.write(insights)
