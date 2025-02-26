@@ -62,7 +62,8 @@ def get_crypto_data(crypto_id="bitcoin", days=180):
 
 # ✅ AI API (Hugging Face)
 API_KEY = "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"  # Replace with your API Key
-API_URL = "API_URL = "https://api-inference.huggingface.co/models/google/gemma-7b"
+API_URL = "API_URL = "https://api-inference.huggingface.com/models/google/gemma-7b"
+
 # ✅ AI Insights Function with Live BTC Data
 def generate_ai_insights(user_prompt):
     if not user_prompt:
