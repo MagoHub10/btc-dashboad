@@ -73,12 +73,24 @@ def generate_ai_insights(user_prompt):
     if btc_price is None or weekly_change is None:
         return "❌ Unable to fetch Bitcoin data. Please try again later."
 
-    # Append live BTC data to the user question
+    # **Better Prompt Engineering**
     full_prompt = f"""
-    Bitcoin's current price is **${btc_price:,.2f}**.
-    Over the past 7 days, the price has changed by **{weekly_change:.2f}%**.
+    You are a professional cryptocurrency market analyst with expertise in Web3 and blockchain finance. 
 
-    {user_prompt}
+    🔹 Current Bitcoin price: **${btc_price:,.2f}**
+    🔹 7-day trend: **{weekly_change:.2f}%**
+
+    Based on this data and historical trends, provide an **accurate, insightful** response to the user's question:
+
+    **User Question:** {user_prompt}
+
+    🔹 **Your response should be:**
+    - Well-structured
+    - Based on Bitcoin market trends
+    - Avoid hallucinations or false information
+    - Give investment indicators & risk factors
+
+    **Keep your response clear and professional.**
     """
 
     headers = {"Authorization": f"Bearer {API_KEY}"}
@@ -91,6 +103,7 @@ def generate_ai_insights(user_prompt):
         return response.json()[0]['generated_text']
     except Exception:
         return "❌ Error processing AI response."
+
 
 # ✅ Streamlit Dashboard
 st.title("📊 Bitcoin Dashboard with AI Insights")
