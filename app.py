@@ -21,7 +21,7 @@ def get_crypto_data(crypto_id="bitcoin", days=180):
 
 # ✅ Load AI Insights
 API_KEY = "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"
-API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
+API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
 
 def generate_ai_insights(prompt):
     headers = {"Authorization": f"Bearer {API_KEY}"}
