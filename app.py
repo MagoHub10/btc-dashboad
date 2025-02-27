@@ -36,7 +36,7 @@ def calculate_ema(data, window):
     return data.ewm(span=window, adjust=False).mean().fillna(data)  # Avoid NaN values
 
 # ✅ AI API (LLaMA 3)
-API_KEY = "your_huggingface_api_key"  # Replace with your actual API Key
+API_KEY = "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"  # Replace with your actual API Key
 API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
 
 # ✅ Generate AI insights based on market data
