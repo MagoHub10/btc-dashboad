@@ -37,7 +37,7 @@ def calculate_ema(data, window):
 
 # ✅ AI API (LLaMA 3)
 API_KEY = "your_huggingface_api_key"  # Replace with your actual API Key
-API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B"
+API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
 
 # ✅ Generate AI insights based on market data
 def generate_ai_insights(selected_kpis):
