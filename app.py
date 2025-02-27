@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
+from datetime import datetime
 
 # ✅ Fetch Bitcoin OHLC Data for Candlestick Chart
 @st.cache_data(ttl=1800)
@@ -17,13 +18,14 @@ def get_crypto_data():
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         df.set_index("timestamp", inplace=True)
         return df
-    except requests.exceptions.RequestException:
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error fetching Bitcoin data: {e}")
         return None
 
 # ✅ Fetch RSI & EMA from AlphaVantage API
 @st.cache_data(ttl=1800)
 def get_technical_indicators():
-    API_KEY = "0RZD71ZFRAWYN55E"
+    API_KEY = "0RZD71ZFRAWYN55E"  # Replace with your Alpha Vantage API key
     base_url = "https://www.alphavantage.co/query"
 
     # Fetch RSI
@@ -46,11 +48,7 @@ def get_technical_indicators():
 
     return {"RSI": rsi_data, **ema_data}
 
-# ✅ AI API (LLaMA 3 or DeepSeek-Chat)
-API_KEY = "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"
-API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
-
-@st.cache_data(ttl=600)
+# ✅ AI Insights Function (Using a Free LLM)
 def generate_ai_insights(selected_kpis):
     crypto_df = get_crypto_data()
     indicators = get_technical_indicators()
@@ -86,13 +84,19 @@ def generate_ai_insights(selected_kpis):
     **Generate your professional market analysis below:**
     """
 
-    headers = {"Authorization": f"Bearer {API_KEY}"}
-    response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
-
-    if response.status_code != 200:
-        return f"❌ AI API Error: HTTP {response.status_code}"
-
-    return response.json()[0]['generated_text']
+    # Use a free LLM API (e.g., OpenAssistant or GPT-Neo)
+    try:
+        response = requests.post(
+            "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct",
+            headers={"Authorization": "Bearer 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"},
+            json={"inputs": prompt}
+        )
+        if response.status_code == 200:
+            return response.json()[0]['generated_text']
+        else:
+            return f"❌ AI API Error: HTTP {response.status_code}"
+    except Exception as e:
+        return f"❌ Error generating insights: {e}"
 
 # ✅ Streamlit Dashboard UI
 st.set_page_config(layout="wide")
@@ -109,9 +113,10 @@ st.sidebar.write(", ".join(selected_kpis))
 # ✅ AI Insights Section
 st.subheader("🤖 AI Market Insights")
 insights_placeholder = st.empty()
-with st.spinner("Generating insights..."):
-    insights = generate_ai_insights(selected_kpis)
-insights_placeholder.write(insights)
+if st.button("Generate Insights"):
+    with st.spinner("Generating insights..."):
+        insights = generate_ai_insights(selected_kpis)
+        insights_placeholder.write(insights)
 
 # ✅ Show Candlestick Chart with KPI Trendlines
 st.subheader("📈 Bitcoin Candlestick Chart with Technical Indicators")
@@ -137,7 +142,7 @@ if crypto_df is not None:
     for kpi in selected_kpis:
         if kpi in indicators and indicators[kpi]:
             kpi_dates = pd.to_datetime(list(indicators[kpi].keys()))  # Convert to datetime
-            kpi_values = list(indicators[kpi].values())
+            kpi_values = [float(v) for v in indicators[kpi].values()]  # Convert values to float
             fig.add_trace(go.Scatter(x=kpi_dates, y=kpi_values, mode='lines', name=f"{kpi} Trend"))
 
     fig.update_layout(
