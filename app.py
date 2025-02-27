@@ -50,6 +50,7 @@ def get_technical_indicators():
 # ✅ AI API (DeepSeek-Chat)
 API_KEY = "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"
 API_URL = "https://api-inference.huggingface.co/models/openchat/openchat-7b"
+
 @st.cache_data(ttl=600)
 def generate_ai_insights(selected_kpis):
     crypto_df = get_crypto_data()
@@ -98,11 +99,15 @@ st.sidebar.header("🔹 Select KPIs to Display")
 kpi_options = ["RSI", "EMA_7", "EMA_30", "EMA_60", "EMA_200"]
 selected_kpis = st.sidebar.multiselect("Choose indicators:", kpi_options, default=["RSI", "EMA_30", "EMA_200"])
 
-# ✅ AI Insights Section
-st.sidebar.subheader("🤖 AI Market Insights")
-with st.sidebar.spinner("Generating insights..."):
+st.sidebar.subheader("📌 Selected KPIs")
+st.sidebar.write(", ".join(selected_kpis))  # Display selected KPIs
+
+# ✅ AI Insights Section (Moved to Main UI)
+st.subheader("🤖 AI Market Insights")
+insights_placeholder = st.empty()
+with st.spinner("Generating insights..."):
     insights = generate_ai_insights(selected_kpis)
-st.sidebar.write(insights)
+insights_placeholder.write(insights)
 
 # ✅ Show Candlestick Chart with Selected KPIs
 st.subheader("📈 Bitcoin Candlestick Chart with Technical Indicators")
