@@ -15,6 +15,9 @@ def get_crypto_data(crypto_id="bitcoin", days=180):
         data = response.json()
         df = pd.DataFrame(data['prices'], columns=['timestamp', 'price'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        
+        # Ensure data is properly formatted
+        df.set_index("timestamp", inplace=True)
         return df
     except requests.exceptions.RequestException:
         return None
@@ -25,19 +28,19 @@ def calculate_rsi(data, period=14):
     gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
     rs = gain / loss
-    return 100 - (100 / (1 + rs))
+    rsi = 100 - (100 / (1 + rs))
+    return rsi.fillna(50)  # Avoid NaN values by setting neutral RSI (50) where missing
 
 # ✅ Calculate EMA for different periods
 def calculate_ema(data, window):
-    return data.ewm(span=window, adjust=False).mean()
+    return data.ewm(span=window, adjust=False).mean().fillna(data)  # Avoid NaN values
 
 # ✅ AI API (LLaMA 3)
-API_KEY = "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"  # Replace with your actual API Key
+API_KEY = "your_huggingface_api_key"  # Replace with your actual API Key
 API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B"
 
 # ✅ Generate AI insights based on market data
 def generate_ai_insights(selected_kpis):
-    # Fetch historical BTC data
     crypto_df = get_crypto_data()
     if crypto_df is None:
         return "❌ Error fetching Bitcoin data."
@@ -49,11 +52,17 @@ def generate_ai_insights(selected_kpis):
     crypto_df["EMA_60"] = calculate_ema(crypto_df["price"], 60)
     crypto_df["EMA_200"] = calculate_ema(crypto_df["price"], 200)
 
-    # Get latest BTC price and indicator values
-    latest_price = crypto_df["price"].iloc[-1]
-    latest_kpi_values = {kpi: crypto_df[kpi].iloc[-1] for kpi in selected_kpis}
+    # Ensure selected KPIs exist
+    available_kpis = [kpi for kpi in selected_kpis if kpi in crypto_df.columns]
 
-    # Create prompt for AI
+    if not available_kpis:
+        return "⚠️ No valid KPIs available to analyze."
+
+    # Get latest values
+    latest_price = crypto_df["price"].iloc[-1]
+    latest_kpi_values = {kpi: crypto_df[kpi].iloc[-1] for kpi in available_kpis}
+
+    # Create AI prompt
     kpi_summary = "\n".join([f"{kpi}: {latest_kpi_values[kpi]:,.2f}" for kpi in latest_kpi_values])
     prompt = f"""
     You are an expert cryptocurrency analyst. Based on the latest Bitcoin market data, generate a financial insight:
@@ -94,19 +103,12 @@ crypto_df = get_crypto_data()
 if crypto_df is not None:
     st.subheader("📈 Bitcoin Price Chart with Selected Indicators")
     fig, ax = plt.subplots(figsize=(12, 6))
-    ax.plot(crypto_df["timestamp"], crypto_df["price"], label="BTC Price", color="blue")
+    ax.plot(crypto_df.index, crypto_df["price"], label="BTC Price", color="blue")
 
-    # Plot selected indicators
-    if "RSI" in selected_kpis:
-        ax.plot(crypto_df["timestamp"], crypto_df["RSI"], label="RSI", linestyle="dashed", color="red")
-    if "EMA_7" in selected_kpis:
-        ax.plot(crypto_df["timestamp"], crypto_df["EMA_7"], label="EMA 7", linestyle="dotted", color="green")
-    if "EMA_30" in selected_kpis:
-        ax.plot(crypto_df["timestamp"], crypto_df["EMA_30"], label="EMA 30", linestyle="dotted", color="orange")
-    if "EMA_60" in selected_kpis:
-        ax.plot(crypto_df["timestamp"], crypto_df["EMA_60"], label="EMA 60", linestyle="dotted", color="purple")
-    if "EMA_200" in selected_kpis:
-        ax.plot(crypto_df["timestamp"], crypto_df["EMA_200"], label="EMA 200", linestyle="dotted", color="brown")
+    # Plot selected indicators safely
+    for kpi in selected_kpis:
+        if kpi in crypto_df.columns:
+            ax.plot(crypto_df.index, crypto_df[kpi], label=kpi, linestyle="dotted")
 
     ax.legend()
     st.pyplot(fig)
