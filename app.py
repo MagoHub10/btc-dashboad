@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 @st.cache_data(ttl=1800)
 def get_crypto_data():
     url = "https://api.coingecko.com/api/v3/coins/bitcoin/ohlc"
-    params = {'vs_currency': 'usd', 'days': 365}  # Last Year of Data
+    params = {'vs_currency': 'usd', 'days': 365}  # Fetch Last Year Data
 
     try:
         response = requests.get(url, params=params, timeout=10)
@@ -46,7 +46,7 @@ def get_technical_indicators():
 
     return {"RSI": rsi_data, **ema_data}
 
-# ✅ AI API (DeepSeek-Chat)
+# ✅ AI API (LLaMA 3 or DeepSeek-Chat)
 API_KEY = "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"
 API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
 
@@ -59,26 +59,31 @@ def generate_ai_insights(selected_kpis):
         return "❌ Error fetching data."
 
     latest_price = crypto_df["close"].iloc[-1]
-    latest_rsi = list(indicators["RSI"].values())[0]
-    latest_ema = {key: list(value.values())[0] for key, value in indicators.items() if key != "RSI"}
-
-    kpi_summary = f"RSI: {latest_rsi}\n" + "\n".join([f"{k}: {v}" for k, v in latest_ema.items()])
     
+    # Extract latest KPI values correctly
+    latest_rsi = list(indicators["RSI"].values())[0] if "RSI" in indicators and indicators["RSI"] else "N/A"
+    latest_ema = {key: list(value.values())[0] for key, value in indicators.items() if key != "RSI" and key in selected_kpis}
+
+    # Properly format KPI summary
+    kpi_summary = f"RSI: {latest_rsi}\n" + "\n".join([f"{k}: {v}" for k, v in latest_ema.items()])
+
     prompt = f"""
-    You are an experienced crypto market advisor. Analyze the Bitcoin trend based on the latest data.
+    You are a professional crypto market analyst. Based on the latest Bitcoin market data:
 
     🔹 **Latest BTC Price:** ${latest_price:,.2f}
     🔹 **Key Indicators:**
     {kpi_summary}
 
-    1️⃣ Identify the market trend (bullish, bearish, neutral).
-    2️⃣ Find key support and resistance levels.
-    3️⃣ Provide trading recommendations based on the data.
+    1️⃣ **Market Trend Analysis:** Identify if Bitcoin is bullish, bearish, or neutral.
+    2️⃣ **Support & Resistance Levels:** Identify critical levels.
+    3️⃣ **Trading Strategy:** Provide recommendations for long and short positions.
 
     🚨 **Rules:**  
-    - Avoid generating random information.  
-    - Keep the response structured like a market report.  
-    - Provide realistic insights with recommended actions.  
+    - Use professional financial terminology.
+    - Structure insights in a clear market report.
+    - No random or irrelevant information.
+
+    **Generate your professional market analysis below:**
     """
 
     headers = {"Authorization": f"Bearer {API_KEY}"}
@@ -108,7 +113,7 @@ with st.spinner("Generating insights..."):
     insights = generate_ai_insights(selected_kpis)
 insights_placeholder.write(insights)
 
-# ✅ Show Candlestick Chart with Selected KPIs
+# ✅ Show Candlestick Chart with KPI Trendlines
 st.subheader("📈 Bitcoin Candlestick Chart with Technical Indicators")
 crypto_df = get_crypto_data()
 indicators = get_technical_indicators()
@@ -128,12 +133,12 @@ if crypto_df is not None:
         name="BTC Price"
     ))
 
-    # ✅ Overlay Selected KPIs as Lines
+    # ✅ Overlay KPI Trendlines
     for kpi in selected_kpis:
         if kpi in indicators and indicators[kpi]:
             kpi_dates = pd.to_datetime(list(indicators[kpi].keys()))  # Convert to datetime
             kpi_values = list(indicators[kpi].values())
-            fig.add_trace(go.Scatter(x=kpi_dates, y=kpi_values, mode='lines', name=kpi))
+            fig.add_trace(go.Scatter(x=kpi_dates, y=kpi_values, mode='lines', name=f"{kpi} Trend"))
 
     fig.update_layout(
         title="Bitcoin Candlestick Chart with Technical Indicators",
