@@ -26,12 +26,12 @@ def get_technical_indicators():
     API_KEY = "0RZD71ZFRAWYN55E"
     base_url = "https://www.alphavantage.co/query"
 
-    # RSI
+    # Fetch RSI
     rsi_url = f"{base_url}?function=RSI&symbol=BTCUSD&interval=daily&time_period=14&series_type=close&apikey={API_KEY}"
     rsi_response = requests.get(rsi_url).json()
-    rsi = rsi_response.get("Technical Analysis: RSI", {})
+    rsi_data = rsi_response.get("Technical Analysis: RSI", {})
 
-    # EMA
+    # Fetch EMA for different time frames
     ema_urls = {
         "EMA_7": f"{base_url}?function=EMA&symbol=BTCUSD&interval=daily&time_period=7&series_type=close&apikey={API_KEY}",
         "EMA_30": f"{base_url}?function=EMA&symbol=BTCUSD&interval=daily&time_period=30&series_type=close&apikey={API_KEY}",
@@ -39,17 +39,16 @@ def get_technical_indicators():
         "EMA_200": f"{base_url}?function=EMA&symbol=BTCUSD&interval=daily&time_period=200&series_type=close&apikey={API_KEY}"
     }
 
-    ema_values = {}
+    ema_data = {}
     for key, url in ema_urls.items():
-        ema_response = requests.get(url).json()
-        ema_data = ema_response.get("Technical Analysis: EMA", {})
-        ema_values[key] = ema_data
+        response = requests.get(url).json()
+        ema_data[key] = response.get("Technical Analysis: EMA", {})
 
-    return {"RSI": rsi, **ema_values}
+    return {"RSI": rsi_data, **ema_data}
 
 # ✅ AI API (DeepSeek-Chat)
 API_KEY = "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"
-API_URL = "https://api-inference.huggingface.co/models/openchat/openchat-7b"
+API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
 
 @st.cache_data(ttl=600)
 def generate_ai_insights(selected_kpis):
@@ -91,7 +90,7 @@ def generate_ai_insights(selected_kpis):
     return response.json()[0]['generated_text']
 
 # ✅ Streamlit Dashboard UI
-st.set_page_config(layout="wide")  # Full-width layout
+st.set_page_config(layout="wide")
 st.title("📊 Bitcoin Market Dashboard with AI Insights")
 
 # ✅ Sidebar for KPI Selection
@@ -100,9 +99,9 @@ kpi_options = ["RSI", "EMA_7", "EMA_30", "EMA_60", "EMA_200"]
 selected_kpis = st.sidebar.multiselect("Choose indicators:", kpi_options, default=["RSI", "EMA_30", "EMA_200"])
 
 st.sidebar.subheader("📌 Selected KPIs")
-st.sidebar.write(", ".join(selected_kpis))  # Display selected KPIs
+st.sidebar.write(", ".join(selected_kpis))
 
-# ✅ AI Insights Section (Moved to Main UI)
+# ✅ AI Insights Section
 st.subheader("🤖 AI Market Insights")
 insights_placeholder = st.empty()
 with st.spinner("Generating insights..."):
@@ -132,13 +131,10 @@ if crypto_df is not None:
     # ✅ Overlay Selected KPIs as Lines
     for kpi in selected_kpis:
         if kpi in indicators and indicators[kpi]:
-            kpi_dates = list(indicators[kpi].keys())[:len(crypto_df)]
-            kpi_values = list(indicators[kpi].values())[:len(crypto_df)]
-            fig.add_trace(go.Scatter(
-                x=kpi_dates, y=kpi_values, mode='lines', name=kpi
-            ))
+            kpi_dates = pd.to_datetime(list(indicators[kpi].keys()))  # Convert to datetime
+            kpi_values = list(indicators[kpi].values())
+            fig.add_trace(go.Scatter(x=kpi_dates, y=kpi_values, mode='lines', name=kpi))
 
-    # ✅ Remove the Slicer for Full Display
     fig.update_layout(
         title="Bitcoin Candlestick Chart with Technical Indicators",
         xaxis_title="Date",
