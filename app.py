@@ -2,48 +2,8 @@ import requests
 import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
-from datetime import datetime
 
-# ✅ Cache BTC price for 5 minutes (300 seconds)
-@st.cache_data(ttl=300)
-def get_btc_price():
-    url = "https://api.coingecko.com/api/v3/simple/price"
-    params = {"ids": "bitcoin", "vs_currencies": "usd"}
-    
-    try:
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        
-        if "bitcoin" in data and "usd" in data["bitcoin"]:
-            return data["bitcoin"]["usd"]
-        else:
-            return None
-    
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching BTC price: {e}")
-        return None
-
-# ✅ Cache 7-day percentage change for 5 minutes
-@st.cache_data(ttl=300)
-def get_weekly_change():
-    url = "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart"
-    params = {"vs_currency": "usd", "days": "7"}
-
-    try:
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()["prices"]
-        start_price = data[0][1]  # Price 7 days ago
-        current_price = data[-1][1]  # Latest price
-        percentage_change = ((current_price - start_price) / start_price) * 100
-        return round(percentage_change, 2)
-    
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching weekly change: {e}")
-        return None
-
-# ✅ Cache BTC historical data for 30 minutes
+# ✅ Fetch Bitcoin historical data
 @st.cache_data(ttl=1800)
 def get_crypto_data(crypto_id="bitcoin", days=180):
     url = f"https://api.coingecko.com/api/v3/coins/{crypto_id}/market_chart"
@@ -56,88 +16,99 @@ def get_crypto_data(crypto_id="bitcoin", days=180):
         df = pd.DataFrame(data['prices'], columns=['timestamp', 'price'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         return df
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching historical data: {e}")
+    except requests.exceptions.RequestException:
         return None
 
-# ✅ AI API (Hugging Face)
+# ✅ Calculate RSI (14-period)
+def calculate_rsi(data, period=14):
+    delta = data.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
+
+# ✅ Calculate EMA for different periods
+def calculate_ema(data, window):
+    return data.ewm(span=window, adjust=False).mean()
+
+# ✅ AI API (LLaMA 3)
 API_KEY = "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"  # Replace with your actual API Key
-API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
+API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B"
 
-headers = {"Authorization": f"Bearer {API_KEY}"}
-# ✅ AI Insights Function with Live BTC Data
-def generate_ai_insights(user_prompt):
-    if not user_prompt:
-        return "❌ Please enter a question to ask the AI."
+# ✅ Generate AI insights based on market data
+def generate_ai_insights(selected_kpis):
+    # Fetch historical BTC data
+    crypto_df = get_crypto_data()
+    if crypto_df is None:
+        return "❌ Error fetching Bitcoin data."
 
-    # Fetch live Bitcoin data
-    btc_price = get_btc_price()
-    weekly_change = get_weekly_change()
+    # Compute indicators
+    crypto_df["RSI"] = calculate_rsi(crypto_df["price"])
+    crypto_df["EMA_7"] = calculate_ema(crypto_df["price"], 7)
+    crypto_df["EMA_30"] = calculate_ema(crypto_df["price"], 30)
+    crypto_df["EMA_60"] = calculate_ema(crypto_df["price"], 60)
+    crypto_df["EMA_200"] = calculate_ema(crypto_df["price"], 200)
 
-    # If API calls fail, return an error
-    if btc_price is None or weekly_change is None:
-        return "❌ Unable to fetch Bitcoin data. Please try again later."
+    # Get latest BTC price and indicator values
+    latest_price = crypto_df["price"].iloc[-1]
+    latest_kpi_values = {kpi: crypto_df[kpi].iloc[-1] for kpi in selected_kpis}
 
-    # **Better Prompt Engineering**
-    full_prompt = f"""
-    You are a professional cryptocurrency market analyst with expertise in Web3 and blockchain finance. 
+    # Create prompt for AI
+    kpi_summary = "\n".join([f"{kpi}: {latest_kpi_values[kpi]:,.2f}" for kpi in latest_kpi_values])
+    prompt = f"""
+    You are an expert cryptocurrency analyst. Based on the latest Bitcoin market data, generate a financial insight:
 
-    🔹 Current Bitcoin price: **${btc_price:,.2f}**
-    🔹 7-day trend: **{weekly_change:.2f}%**
+    🔹 **BTC Price:** ${latest_price:,.2f}
+    {kpi_summary}
 
-    Based on this data and historical trends, provide an **accurate, insightful** response to the user's question:
-
-    **User Question:** {user_prompt}
-
-    🔹 **Your response should be:**
-    - Well-structured
-    - Based on Bitcoin market trends
-    - Avoid hallucinations or false information
-    - Give investment indicators & risk factors
-
-    **Keep your response clear and professional.**
+    Provide a professional summary of the current trend, potential market movement, and key indicators traders should monitor.
     """
 
     headers = {"Authorization": f"Bearer {API_KEY}"}
-    response = requests.post(API_URL, headers=headers, json={"inputs": full_prompt})
+    response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
 
     if response.status_code != 200:
         return f"❌ AI API Error: HTTP {response.status_code}"
 
     try:
         return response.json()[0]['generated_text']
-    except Exception as e:
-        return f"❌ Error processing AI response: {e}"
+    except Exception:
+        return "❌ Error processing AI response."
 
 # ✅ Streamlit Dashboard
-st.title("📊 Bitcoin Dashboard with AI Insights")
+st.title("📊 Bitcoin Market Dashboard with AI Insights")
 
-# ✅ Load & Display BTC Data
+# ✅ KPI Selection Box
+st.subheader("📌 Select KPIs to Analyze")
+kpi_options = ["RSI", "EMA_7", "EMA_30", "EMA_60", "EMA_200"]
+selected_kpis = st.multiselect("Choose indicators:", kpi_options, default=["RSI", "EMA_30", "EMA_200"])
+
+# ✅ Generate AI insights automatically
+st.subheader("🤖 AI-Generated Market Insights")
+with st.spinner("Generating insights..."):
+    insights = generate_ai_insights(selected_kpis)
+    st.write(insights)
+
+# ✅ Show Price Chart & Selected Indicators
 crypto_df = get_crypto_data()
+if crypto_df is not None:
+    st.subheader("📈 Bitcoin Price Chart with Selected Indicators")
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.plot(crypto_df["timestamp"], crypto_df["price"], label="BTC Price", color="blue")
 
-if crypto_df is None:
-    st.error("❌ Error fetching historical Bitcoin data.")
+    # Plot selected indicators
+    if "RSI" in selected_kpis:
+        ax.plot(crypto_df["timestamp"], crypto_df["RSI"], label="RSI", linestyle="dashed", color="red")
+    if "EMA_7" in selected_kpis:
+        ax.plot(crypto_df["timestamp"], crypto_df["EMA_7"], label="EMA 7", linestyle="dotted", color="green")
+    if "EMA_30" in selected_kpis:
+        ax.plot(crypto_df["timestamp"], crypto_df["EMA_30"], label="EMA 30", linestyle="dotted", color="orange")
+    if "EMA_60" in selected_kpis:
+        ax.plot(crypto_df["timestamp"], crypto_df["EMA_60"], label="EMA 60", linestyle="dotted", color="purple")
+    if "EMA_200" in selected_kpis:
+        ax.plot(crypto_df["timestamp"], crypto_df["EMA_200"], label="EMA 200", linestyle="dotted", color="brown")
+
+    ax.legend()
+    st.pyplot(fig)
 else:
-    st.subheader("🔹 Bitcoin Price Trend (Last 6 Months)")
-    st.line_chart(crypto_df.set_index('timestamp')['price'])
-
-# ✅ Show Real-Time BTC Price & Weekly Change
-st.subheader("💰 Current Bitcoin Price")
-
-btc_price = get_btc_price()
-weekly_change = get_weekly_change()
-
-if btc_price is None or weekly_change is None:
-    st.warning("⚠️ Too many requests or API unavailable. Please wait a few minutes.")
-else:
-    st.metric(label="📊 Bitcoin Price", value=f"${btc_price:,.2f}")
-    st.metric(label="📉 7-Day Change", value=f"{weekly_change:.2f}%", delta=weekly_change)
-
-# ✅ AI Insights Section with User Input
-st.subheader("🤖 Ask AI About Bitcoin")
-
-user_question = st.text_area("Enter your question about Bitcoin:", "")
-if st.button("Generate AI Insights"):
-    with st.spinner("Generating insights..."):
-        insights = generate_ai_insights(user_question)
-        st.write(insights)
+    st.error("❌ Error fetching Bitcoin price data.")
