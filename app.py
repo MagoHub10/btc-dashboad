@@ -27,15 +27,15 @@ def calculate_rsi(data, period=14):
     loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
     rs = gain / loss
     rsi = 100 - (100 / (1 + rs))
-    return rsi.fillna(50)  # Prevent NaN errors
+    return rsi.fillna(50)
 
 # ✅ Calculate EMA for different periods
 def calculate_ema(data, window):
     return data.ewm(span=window, adjust=False).mean().fillna(data)
 
-# ✅ AI API (LLaMA 3)
-API_KEY = "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"  # Replace with your actual API Key
-API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
+# ✅ AI API (Mistral-7B or DeepSeek)
+API_KEY = "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"
+API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
 
 # ✅ Generate AI insights based on market data
 def generate_ai_insights(selected_kpis):
@@ -63,19 +63,24 @@ def generate_ai_insights(selected_kpis):
     # Create AI prompt
     kpi_summary = "\n".join([f"{kpi}: {latest_kpi_values[kpi]:,.2f}" for kpi in latest_kpi_values])
     prompt = f"""
-    You are an expert cryptocurrency analyst. Based on the latest Bitcoin market data, generate a financial insight:
+    You are a professional financial analyst specializing in Bitcoin.
 
-    🔹 **BTC Price:** ${latest_price:,.2f}
+    🔹 **Latest BTC Price:** ${latest_price:,.2f}
+    🔹 **Key Indicators:**
     {kpi_summary}
 
-    Provide a professional summary of the current trend, potential market movement, and key indicators traders should monitor.
+    1️⃣ Identify the market trend (bullish, bearish, neutral).
+    2️⃣ Find key support and resistance levels.
+    3️⃣ Suggest investment strategies based on the data.
+
+    🚨 **Rules:**  
+    - Do **not** generate random words.  
+    - Keep it **short & professional**.  
+    - Provide **realistic** trading insights.  
     """
 
     headers = {"Authorization": f"Bearer {API_KEY}"}
     response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
-
-    if response.status_code == 401:
-        return "❌ AI API Error: Unauthorized - Check API Key"
 
     if response.status_code != 200:
         return f"❌ AI API Error: HTTP {response.status_code}"
@@ -88,25 +93,21 @@ def generate_ai_insights(selected_kpis):
 # ✅ Streamlit Dashboard
 st.title("📊 Bitcoin Market Dashboard with AI Insights")
 
-# ✅ KPI Selection Box
 st.subheader("📌 Select KPIs to Analyze")
 kpi_options = ["RSI", "EMA_7", "EMA_30", "EMA_60", "EMA_200"]
 selected_kpis = st.multiselect("Choose indicators:", kpi_options, default=["RSI", "EMA_30", "EMA_200"])
 
-# ✅ Generate AI insights automatically
 st.subheader("🤖 AI-Generated Market Insights")
 with st.spinner("Generating insights..."):
     insights = generate_ai_insights(selected_kpis)
     st.write(insights)
 
-# ✅ Show Price Chart & Selected Indicators
 crypto_df = get_crypto_data()
 if crypto_df is not None:
     st.subheader("📈 Bitcoin Price Chart with Selected Indicators")
     fig, ax = plt.subplots(figsize=(12, 6))
     ax.plot(crypto_df.index, crypto_df["price"], label="BTC Price", color="blue")
 
-    # ✅ Ensure Selected KPIs Are in the DataFrame Before Plotting
     for kpi in selected_kpis:
         if kpi in crypto_df.columns:
             ax.plot(crypto_df.index, crypto_df[kpi], label=kpi, linestyle="dotted")
