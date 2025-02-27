@@ -15,8 +15,6 @@ def get_crypto_data(crypto_id="bitcoin", days=180):
         data = response.json()
         df = pd.DataFrame(data['prices'], columns=['timestamp', 'price'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-        
-        # Ensure data is properly formatted
         df.set_index("timestamp", inplace=True)
         return df
     except requests.exceptions.RequestException:
@@ -29,11 +27,11 @@ def calculate_rsi(data, period=14):
     loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
     rs = gain / loss
     rsi = 100 - (100 / (1 + rs))
-    return rsi.fillna(50)  # Avoid NaN values by setting neutral RSI (50) where missing
+    return rsi.fillna(50)  # Prevent NaN errors
 
 # ✅ Calculate EMA for different periods
 def calculate_ema(data, window):
-    return data.ewm(span=window, adjust=False).mean().fillna(data)  # Avoid NaN values
+    return data.ewm(span=window, adjust=False).mean().fillna(data)
 
 # ✅ AI API (LLaMA 3)
 API_KEY = "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"  # Replace with your actual API Key
@@ -52,11 +50,11 @@ def generate_ai_insights(selected_kpis):
     crypto_df["EMA_60"] = calculate_ema(crypto_df["price"], 60)
     crypto_df["EMA_200"] = calculate_ema(crypto_df["price"], 200)
 
-    # Ensure selected KPIs exist
+    # Filter selected KPIs
     available_kpis = [kpi for kpi in selected_kpis if kpi in crypto_df.columns]
 
     if not available_kpis:
-        return "⚠️ No valid KPIs available to analyze."
+        return "⚠️ No valid KPIs selected."
 
     # Get latest values
     latest_price = crypto_df["price"].iloc[-1]
@@ -75,6 +73,9 @@ def generate_ai_insights(selected_kpis):
 
     headers = {"Authorization": f"Bearer {API_KEY}"}
     response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+
+    if response.status_code == 401:
+        return "❌ AI API Error: Unauthorized - Check API Key"
 
     if response.status_code != 200:
         return f"❌ AI API Error: HTTP {response.status_code}"
@@ -105,7 +106,7 @@ if crypto_df is not None:
     fig, ax = plt.subplots(figsize=(12, 6))
     ax.plot(crypto_df.index, crypto_df["price"], label="BTC Price", color="blue")
 
-    # Plot selected indicators safely
+    # ✅ Ensure Selected KPIs Are in the DataFrame Before Plotting
     for kpi in selected_kpis:
         if kpi in crypto_df.columns:
             ax.plot(crypto_df.index, crypto_df[kpi], label=kpi, linestyle="dotted")
