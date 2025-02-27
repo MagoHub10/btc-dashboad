@@ -139,11 +139,12 @@ if crypto_df is not None:
     ))
 
     # ✅ Overlay KPI Trendlines
-    for kpi in selected_kpis:
-        if kpi in indicators and indicators[kpi]:
-            kpi_dates = pd.to_datetime(list(indicators[kpi].keys()))  # Convert to datetime
-            kpi_values = [float(v) for v in indicators[kpi].float()]  # Convert values to float
-            fig.add_trace(go.Scatter(x=kpi_dates, y=kpi_values, mode='lines', name=f"{kpi} Trend"))
+    # ✅ Overlay KPI Trendlines
+for kpi in selected_kpis:
+    if kpi in indicators and indicators[kpi]:
+        kpi_dates = pd.to_datetime(list(indicators[kpi].keys()))  # Convert to datetime
+        kpi_values = [float(list(v.values())[0]) for v in indicators[kpi].values()]  # Extract and convert values to float
+        fig.add_trace(go.Scatter(x=kpi_dates, y=kpi_values, mode='lines', name=f"{kpi} Trend"))
 
     fig.update_layout(
         title="Bitcoin Candlestick Chart with Technical Indicators",
