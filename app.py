@@ -2,12 +2,13 @@ import requests
 import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
+import plotly.subplots as sp
 
 # ✅ Fetch Bitcoin OHLC Data for Candlestick Chart
 @st.cache_data(ttl=1800)
 def get_crypto_data():
     url = "https://api.coingecko.com/api/v3/coins/bitcoin/ohlc"
-    params = {'vs_currency': 'usd', 'days': 365}  # Fetch Last Year Data
+    params = {'vs_currency': 'usd', 'days': 365}
 
     try:
         response = requests.get(url, params=params, timeout=10)
@@ -32,7 +33,7 @@ def get_technical_indicators():
     rsi_response = requests.get(rsi_url).json()
     rsi_data = rsi_response.get("Technical Analysis: RSI", {})
 
-    # Fetch EMA for different time frames
+    # Fetch EMA
     ema_urls = {
         "EMA_7": f"{base_url}?function=EMA&symbol=BTCUSD&interval=daily&time_period=7&series_type=close&apikey={API_KEY}",
         "EMA_30": f"{base_url}?function=EMA&symbol=BTCUSD&interval=daily&time_period=30&series_type=close&apikey={API_KEY}",
@@ -47,7 +48,7 @@ def get_technical_indicators():
 
     return {"RSI": rsi_data, **ema_data}
 
-# ✅ AI Insights Function (Using Llama 3.8B or DeepSeek-Chat)
+# ✅ AI Insights Function
 def generate_ai_insights(selected_kpis):
     crypto_df = get_crypto_data()
     indicators = get_technical_indicators()
@@ -57,11 +58,17 @@ def generate_ai_insights(selected_kpis):
 
     latest_price = crypto_df["close"].iloc[-1]
     
-    # Extract latest KPI values correctly
-    latest_rsi = float(list(indicators["RSI"].values())[0]) if "RSI" in indicators and indicators["RSI"] else "N/A"
+    # Extract RSI safely
+    latest_rsi = "N/A"
+    if "RSI" in indicators and indicators["RSI"]:
+        rsi_values = list(indicators["RSI"].values())
+        if rsi_values:
+            latest_rsi = float(rsi_values[0])
+
+    # Extract EMA values safely
     latest_ema = {key: float(list(value.values())[0]) for key, value in indicators.items() if key != "RSI" and key in selected_kpis}
 
-    # Properly format KPI summary
+    # Format KPI summary
     kpi_summary = f"RSI: {latest_rsi:.2f}\n" + "\n".join([f"{k}: {v:.2f}" for k, v in latest_ema.items()])
 
     prompt = f"""
@@ -78,10 +85,9 @@ def generate_ai_insights(selected_kpis):
     🚨 **Rules:**  
     - Use professional financial terminology.
     - Structure insights in a clear market report.
-    - No random or irrelevant information.
     """
 
-    # Use a free LLM API
+    # Use LLaMA 3 API for AI Insights
     try:
         response = requests.post(
             "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct",
@@ -115,13 +121,14 @@ if st.button("Generate Insights"):
         insights = generate_ai_insights(selected_kpis)
         insights_placeholder.write(insights)
 
-# ✅ Show Candlestick Chart with KPI Trendlines
+# ✅ Show Candlestick Chart with RSI as Separate Subplot
 st.subheader("📈 Bitcoin Candlestick Chart with Technical Indicators")
 crypto_df = get_crypto_data()
 indicators = get_technical_indicators()
 
 if crypto_df is not None:
-    fig = go.Figure()
+    # Create two subplots: Candlestick + RSI
+    fig = sp.make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.1)
 
     # ✅ Candlestick Chart
     fig.add_trace(go.Candlestick(
@@ -133,22 +140,21 @@ if crypto_df is not None:
         increasing_line_color='green',
         decreasing_line_color='red',
         name="BTC Price"
-    ))
+    ), row=1, col=1)
 
     # ✅ Overlay KPI Trendlines
     for kpi in selected_kpis:
         if kpi in indicators and indicators[kpi]:
-            kpi_dates = pd.to_datetime(list(indicators[kpi].keys()))  # Convert to datetime
-            kpi_values = [float(list(v.values())[0]) for v in indicators[kpi].values()]  # Extract and convert values to float
-            fig.add_trace(go.Scatter(x=kpi_dates, y=kpi_values, mode='lines', name=f"{kpi} Trend"))
+            kpi_dates = pd.to_datetime(list(indicators[kpi].keys()))
+            kpi_values = [float(list(v.values())[0]) for v in indicators[kpi].values()]
+            fig.add_trace(go.Scatter(x=kpi_dates, y=kpi_values, mode='lines', name=f"{kpi} Trend"), row=1, col=1)
 
-    fig.update_layout(
-        title="Bitcoin Candlestick Chart with Technical Indicators",
-        xaxis_title="Date",
-        yaxis_title="Price (USD)",
-        xaxis_rangeslider_visible=False
-    )
+    # ✅ RSI Subplot
+    rsi_dates = pd.to_datetime(list(indicators["RSI"].keys()))
+    rsi_values = [float(list(v.values())[0]) for v in indicators["RSI"].values()]
+    fig.add_trace(go.Scatter(x=rsi_dates, y=rsi_values, mode='lines', line=dict(color='blue'), name="RSI"), row=2, col=1)
 
+    fig.update_layout(xaxis_rangeslider_visible=False)
     st.plotly_chart(fig)
 else:
     st.error("❌ Error fetching Bitcoin price data.")
