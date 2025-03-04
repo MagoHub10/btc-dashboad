@@ -44,12 +44,18 @@ def get_technical_indicators():
 
     ema_data = {}
     for key, url in ema_urls.items():
-        response = requests.get(url).json()
-        ema_data[key] = response.get("Technical Analysis: EMA", {})
+        try:
+            response = requests.get(url).json()
+            if "Technical Analysis: EMA" in response:
+                ema_data[key] = response["Technical Analysis: EMA"]
+            else:
+                st.warning(f"No EMA data found for {key}")
+        except Exception as e:
+            st.error(f"Error fetching {key} EMA data: {e}")
 
     return {"RSI": rsi_data, **ema_data}
 
-# ✅ AI Insights Function (Using Meta-Llama-3-8B-Instruct)
+# ✅ AI Insights Function (Using OpenAssistant)
 def generate_ai_insights(selected_kpis):
     crypto_df = get_crypto_data()
     indicators = get_technical_indicators()
@@ -91,8 +97,8 @@ def generate_ai_insights(selected_kpis):
     - Keep the response concise and structured.
     """
 
-    # Use Meta-Llama-3-8B-Instruct
-    API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
+    # Use OpenAssistant
+    API_URL = "https://api-inference.huggingface.co/models/OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5"
     headers = {"Authorization": "Bearer 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"}
     payload = {"inputs": prompt}
 
