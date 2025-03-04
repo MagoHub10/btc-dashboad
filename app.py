@@ -94,7 +94,7 @@ def generate_ai_insights(selected_kpis):
     # Use a free LLM API (e.g., OpenAssistant or GPT-Neo)
     try:
         response = requests.post(
-            "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
+            "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct",
             headers={"Authorization": "Bearer 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"},
             json={"inputs": prompt}
         )
