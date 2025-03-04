@@ -98,7 +98,7 @@ def generate_ai_insights(selected_kpis):
     """
 
     # Use OpenAssistant
-API URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct",
+API URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
 headers = {"Authorization": "Bearer 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"}
     payload = {"inputs": prompt}
 
