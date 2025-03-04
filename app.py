@@ -2,7 +2,6 @@ import requests
 import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
-from datetime import datetime
 
 # ✅ Fetch Bitcoin OHLC Data for Candlestick Chart
 @st.cache_data(ttl=1800)
@@ -25,7 +24,7 @@ def get_crypto_data():
 # ✅ Fetch RSI & EMA from AlphaVantage API
 @st.cache_data(ttl=1800)
 def get_technical_indicators():
-    API_KEY = "0RZD71ZFRAWYN55E"  # Replace with your Alpha Vantage API key
+    API_KEY = "0RZD71ZFRAWYN55E"
     base_url = "https://www.alphavantage.co/query"
 
     # Fetch RSI
@@ -48,22 +47,22 @@ def get_technical_indicators():
 
     return {"RSI": rsi_data, **ema_data}
 
-# ✅ AI Insights Function (Using a Free LLM)
+# ✅ AI Insights Function (Using Llama 3.8B or DeepSeek-Chat)
 def generate_ai_insights(selected_kpis):
     crypto_df = get_crypto_data()
     indicators = get_technical_indicators()
 
     if crypto_df is None or not indicators:
-        return "❌ Error fetching data."
+        return "❌ Error fetching market data."
 
     latest_price = crypto_df["close"].iloc[-1]
     
     # Extract latest KPI values correctly
-    latest_rsi = list(indicators["RSI"].values())[0] if "RSI" in indicators and indicators["RSI"] else "N/A"
-    latest_ema = {key: list(value.values())[0] for key, value in indicators.items() if key != "RSI" and key in selected_kpis}
+    latest_rsi = float(list(indicators["RSI"].values())[0]) if "RSI" in indicators and indicators["RSI"] else "N/A"
+    latest_ema = {key: float(list(value.values())[0]) for key, value in indicators.items() if key != "RSI" and key in selected_kpis}
 
     # Properly format KPI summary
-    kpi_summary = f"RSI: {latest_rsi}\n" + "\n".join([f"{k}: {v}" for k, v in latest_ema.items()])
+    kpi_summary = f"RSI: {latest_rsi:.2f}\n" + "\n".join([f"{k}: {v:.2f}" for k, v in latest_ema.items()])
 
     prompt = f"""
     You are a professional crypto market analyst. Based on the latest Bitcoin market data:
@@ -80,11 +79,9 @@ def generate_ai_insights(selected_kpis):
     - Use professional financial terminology.
     - Structure insights in a clear market report.
     - No random or irrelevant information.
-
-    **Generate your professional market analysis below:**
     """
 
-    # Use a free LLM API (e.g., OpenAssistant or GPT-Neo)
+    # Use a free LLM API
     try:
         response = requests.post(
             "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct",
@@ -139,12 +136,11 @@ if crypto_df is not None:
     ))
 
     # ✅ Overlay KPI Trendlines
-    # ✅ Overlay KPI Trendlines
-for kpi in selected_kpis:
-    if kpi in indicators and indicators[kpi]:
-        kpi_dates = pd.to_datetime(list(indicators[kpi].keys()))  # Convert to datetime
-        kpi_values = [float(list(v.values())[0]) for v in indicators[kpi].values()]  # Extract and convert values to float
-        fig.add_trace(go.Scatter(x=kpi_dates, y=kpi_values, mode='lines', name=f"{kpi} Trend"))
+    for kpi in selected_kpis:
+        if kpi in indicators and indicators[kpi]:
+            kpi_dates = pd.to_datetime(list(indicators[kpi].keys()))  # Convert to datetime
+            kpi_values = [float(list(v.values())[0]) for v in indicators[kpi].values()]  # Extract and convert values to float
+            fig.add_trace(go.Scatter(x=kpi_dates, y=kpi_values, mode='lines', name=f"{kpi} Trend"))
 
     fig.update_layout(
         title="Bitcoin Candlestick Chart with Technical Indicators",
