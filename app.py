@@ -58,17 +58,20 @@ def generate_ai_insights(selected_kpis):
 
     latest_price = crypto_df["close"].iloc[-1]
     
-    # Extract RSI safely
+    # ✅ Extract RSI safely
     latest_rsi = "N/A"
-    if "RSI" in indicators and indicators["RSI"]:
+    if "RSI" in selected_kpis and "RSI" in indicators and indicators["RSI"]:
         rsi_values = list(indicators["RSI"].values())
         if rsi_values:
-            latest_rsi = float(rsi_values[0])
+            try:
+                latest_rsi = float(rsi_values[0])
+            except ValueError:
+                latest_rsi = "N/A"
 
-    # Extract EMA values safely
+    # ✅ Extract EMA safely
     latest_ema = {key: float(list(value.values())[0]) for key, value in indicators.items() if key != "RSI" and key in selected_kpis}
 
-    # Format KPI summary
+    # ✅ Format KPI summary
     kpi_summary = f"RSI: {latest_rsi:.2f}\n" + "\n".join([f"{k}: {v:.2f}" for k, v in latest_ema.items()])
 
     prompt = f"""
@@ -87,7 +90,7 @@ def generate_ai_insights(selected_kpis):
     - Structure insights in a clear market report.
     """
 
-    # Use LLaMA 3 API for AI Insights
+    # ✅ Use LLaMA 3 API for AI Insights
     try:
         response = requests.post(
             "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct",
@@ -108,7 +111,7 @@ st.title("📊 Bitcoin Market Dashboard with AI Insights")
 # ✅ Sidebar for KPI Selection
 st.sidebar.header("🔹 Select KPIs to Display")
 kpi_options = ["RSI", "EMA_7", "EMA_30", "EMA_60", "EMA_200"]
-selected_kpis = st.sidebar.multiselect("Choose indicators:", kpi_options, default=["RSI", "EMA_30", "EMA_200"])
+selected_kpis = st.sidebar.multiselect("Choose indicators:", kpi_options, default=["EMA_30", "EMA_200"])
 
 st.sidebar.subheader("📌 Selected KPIs")
 st.sidebar.write(", ".join(selected_kpis))
@@ -121,14 +124,15 @@ if st.button("Generate Insights"):
         insights = generate_ai_insights(selected_kpis)
         insights_placeholder.write(insights)
 
-# ✅ Show Candlestick Chart with RSI as Separate Subplot
+# ✅ Show Candlestick Chart with RSI as Separate Subplot (Only if Selected)
 st.subheader("📈 Bitcoin Candlestick Chart with Technical Indicators")
 crypto_df = get_crypto_data()
 indicators = get_technical_indicators()
 
 if crypto_df is not None:
-    # Create two subplots: Candlestick + RSI
-    fig = sp.make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.1)
+    # ✅ Create subplot layout: Only create RSI subplot if selected
+    rows = 2 if "RSI" in selected_kpis else 1
+    fig = sp.make_subplots(rows=rows, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3] if rows == 2 else [1], vertical_spacing=0.1)
 
     # ✅ Candlestick Chart
     fig.add_trace(go.Candlestick(
@@ -149,10 +153,11 @@ if crypto_df is not None:
             kpi_values = [float(list(v.values())[0]) for v in indicators[kpi].values()]
             fig.add_trace(go.Scatter(x=kpi_dates, y=kpi_values, mode='lines', name=f"{kpi} Trend"), row=1, col=1)
 
-    # ✅ RSI Subplot
-    rsi_dates = pd.to_datetime(list(indicators["RSI"].keys()))
-    rsi_values = [float(list(v.values())[0]) for v in indicators["RSI"].values()]
-    fig.add_trace(go.Scatter(x=rsi_dates, y=rsi_values, mode='lines', line=dict(color='blue'), name="RSI"), row=2, col=1)
+    # ✅ Plot RSI only if selected
+    if "RSI" in selected_kpis:
+        rsi_dates = pd.to_datetime(list(indicators["RSI"].keys()))
+        rsi_values = [float(list(v.values())[0]) for v in indicators["RSI"].values()]
+        fig.add_trace(go.Scatter(x=rsi_dates, y=rsi_values, mode='lines', line=dict(color='blue'), name="RSI"), row=2, col=1)
 
     fig.update_layout(xaxis_rangeslider_visible=False)
     st.plotly_chart(fig)
