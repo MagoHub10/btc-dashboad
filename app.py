@@ -69,7 +69,7 @@ def generate_ai_insights(selected_kpis):
                 latest_rsi = "N/A"
 
     # ✅ Extract EMA safely
-    latest_ema = {key: float(list(value.values())[0]) for key, value in indicators.items() if key != "RSI" and key in selected_kpis}
+    latest_ema = {key: float(list(value.values())[0]) for key, value in indicators.items()}
 
     # ✅ Format KPI summary
     kpi_summary = f"RSI: {latest_rsi:.2f}\n" + "\n".join([f"{k}: {v:.2f}" for k, v in latest_ema.items()])
