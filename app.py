@@ -49,7 +49,7 @@ def get_technical_indicators():
 
     return {"RSI": rsi_data, **ema_data}
 
-# ✅ AI Insights Function (Using a Free LLM)
+# ✅ AI Insights Function (Using Meta-Llama-3-8B-Instruct)
 def generate_ai_insights(selected_kpis):
     crypto_df = get_crypto_data()
     indicators = get_technical_indicators()
@@ -72,6 +72,7 @@ def generate_ai_insights(selected_kpis):
     # Properly format KPI summary
     kpi_summary = f"RSI: {latest_rsi}\n" + "\n".join([f"{k}: {v}" for k, v in latest_ema.items()])
 
+    # Structured prompt for LLM
     prompt = f"""
     You are a professional crypto market analyst. Based on the latest Bitcoin market data:
 
@@ -79,25 +80,24 @@ def generate_ai_insights(selected_kpis):
     🔹 **Key Indicators:**
     {kpi_summary}
 
+    Provide a professional market analysis with the following structure:
     1️⃣ **Market Trend Analysis:** Identify if Bitcoin is bullish, bearish, or neutral.
     2️⃣ **Support & Resistance Levels:** Identify critical levels.
     3️⃣ **Trading Strategy:** Provide recommendations for long and short positions.
 
-    🚨 **Rules:**  
+    Rules:
     - Use professional financial terminology.
-    - Structure insights in a clear market report.
-    - No random or irrelevant information.
-
-    **Generate your professional market analysis below:**
+    - Do not include the prompt in your response.
+    - Keep the response concise and structured.
     """
 
-    # Use a free LLM API (e.g., OpenAssistant or GPT-Neo)
+    # Use Meta-Llama-3-8B-Instruct
+    API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
+    headers = {"Authorization": "Bearer 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"}
+    payload = {"inputs": prompt}
+
     try:
-        response = requests.post(
-            "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct",
-            headers={"Authorization": "Bearer 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"},
-            json={"inputs": prompt}
-        )
+        response = requests.post(API_URL, headers=headers, json=payload)
         if response.status_code == 200:
             return response.json()[0]['generated_text']
         else:
